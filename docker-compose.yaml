@@ -1,0 +1,62 @@
+version: "3.11"
+
+services:
+  web:
+    build:
+      context: .
+    command: /app/entrypoint.sh python manage.py runserver 0.0.0.0:8000
+    restart: always
+    networks:
+      - backend
+    volumes:
+      - .:/app/
+    ports:
+      - 8000:8000
+    depends_on:
+      - redis_db
+    container_name: get_usd_container
+
+  redis_db:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    container_name: get_usd-redis_db
+
+  celery_worker:
+    restart: always
+    build:
+      context: .
+    command: celery -A conf worker -l info
+    volumes:
+      - .:/app/
+    depends_on:
+      - redis_db
+      - web
+    networks:
+      - backend
+    container_name: get_usd-celery_worker
+
+  celery_beat:
+    restart: always
+    build:
+      context: .
+    command: celery -A conf beat -l info
+    volumes:
+      - .:/app/
+    depends_on:
+      - redis_db
+      - web
+    networks:
+      - backend
+    container_name: get_usd-celery_beat
+
+volumes:
+  redis_data:
+
+networks:
+  backend:
+    name: backend
+    driver: bridge
